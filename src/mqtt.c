@@ -1200,12 +1200,7 @@ ssize_t mqtt_pack_connection_request(uint8_t* buf, size_t bufsz,
     }
 
     /* pack the variable header */
-    *buf++ = 0x00;
-    *buf++ = 0x04;
-    *buf++ = (uint8_t) 'M';
-    *buf++ = (uint8_t) 'Q';
-    *buf++ = (uint8_t) 'T';
-    *buf++ = (uint8_t) 'T';
+    buf += __mqtt_pack_str(buf, "MQTT");
     *buf++ = MQTT_PROTOCOL_LEVEL;
     *buf++ = connect_flags;
     buf += __mqtt_pack_uint16(buf, keep_alive);
@@ -1756,31 +1751,29 @@ ssize_t __mqtt_unpack_remaining_length(uint32_t *length, const uint8_t *buf, siz
 
 ssize_t __mqtt_pack_uint16(uint8_t *buf, uint16_t integer)
 {
-  uint16_t integer_htons = MQTT_PAL_HTONS(integer);
-  memcpy(buf, &integer_htons, 2uL);
-  return 2;
+    *buf++ = (uint8_t)(integer >> 8);
+    *buf++ = (uint8_t)integer;
+    return 2;
 }
 
 uint16_t __mqtt_unpack_uint16(const uint8_t *buf)
 {
-  uint16_t integer_htons;
-  memcpy(&integer_htons, buf, 2uL);
-  return MQTT_PAL_NTOHS(integer_htons);
+    uint8_t hi = *buf;
+    uint8_t lo = *(buf + 1);
+    return ((uint16_t)hi << 8) | (uint16_t)lo;
 }
 
 ssize_t __mqtt_pack_str(uint8_t *buf, const char* str) {
-    uint16_t length = (uint16_t)strlen(str);
-    int i = 0;
+    size_t length = strlen(str);
+
      /* pack string length */
-    buf += __mqtt_pack_uint16(buf, length);
+    buf += __mqtt_pack_uint16(buf, (uint16_t)length);
 
     /* pack string */
-    for(; i < length; ++i) {
-        *(buf++) = (uint8_t)str[i];
-    }
-    
+    memcpy(buf, str, length);
+
     /* return number of bytes consumed */
-    return length + 2;
+    return 2 + (ssize_t)length;
 }
 
 static const char * const MQTT_ERRORS_STR[] = {

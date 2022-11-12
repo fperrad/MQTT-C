@@ -302,7 +302,7 @@ uint16_t __mqtt_unpack_uint16(const uint8_t *buf);
  * 
  * @warning This function provides no error checking.
  * 
- * @returns strlen(str) + 2
+ * @returns 2 + strlen(str)
 */
 ssize_t __mqtt_pack_str(uint8_t *buf, const char* str);
 
