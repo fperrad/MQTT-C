@@ -908,6 +908,7 @@ struct mqtt_fixed_header_rules_s{
     mqtt_bool_t control_type_is_valid[16];
     uint8_t required_flags[16];
     uint8_t mask_required_flags[16];
+    ssize_t expected_length[16];
 } ;
 
 static const struct mqtt_fixed_header_rules_s mqtt_fixed_header_rules ={
@@ -964,20 +965,42 @@ static const struct mqtt_fixed_header_rules_s mqtt_fixed_header_rules ={
                 0x0F, /* MQTT_CONTROL_PINGRESP */
                 0x0F, /* MQTT_CONTROL_DISCONNECT */
                 0x00  /* MQTT_CONTROL_RESERVED */
+        },
+        {   /* expected remaining length or -(minimal remaining length) */
+                0,    /* MQTT_CONTROL_RESERVED */
+                -10,  /* MQTT_CONTROL_CONNECT */
+                2,    /* MQTT_CONTROL_CONNACK */
+                -4,   /* MQTT_CONTROL_PUBLISH */
+                2,    /* MQTT_CONTROL_PUBACK */
+                2,    /* MQTT_CONTROL_PUBREC */
+                2,    /* MQTT_CONTROL_PUBREL */
+                2,    /* MQTT_CONTROL_PUBCOMP */
+                -6,   /* MQTT_CONTROL_SUBSCRIBE */
+                -3,   /* MQTT_CONTROL_SUBACK */
+                -5,   /* MQTT_CONTROL_UNSUBSCRIBE */
+                2,    /* MQTT_CONTROL_UNSUBACK */
+                0,    /* MQTT_CONTROL_PINGREQ */
+                0,    /* MQTT_CONTROL_PINGRESP */
+                0,    /* MQTT_CONTROL_DISCONNECT */
+                0     /* MQTT_CONTROL_RESERVED */
         }
 };
 
 static ssize_t mqtt_fixed_header_rule_violation(const struct mqtt_fixed_header *fixed_header) {
     uint8_t control_type;
     uint8_t control_flags;
+    ssize_t remaining_length;
     uint8_t required_flags;
     uint8_t mask_required_flags;
+    ssize_t expected_length;
 
     /* get value and rules */
     control_type = (uint8_t)fixed_header->control_type;
     control_flags = fixed_header->control_flags;
+    remaining_length = (ssize_t)fixed_header->remaining_length;
     required_flags = mqtt_fixed_header_rules.required_flags[control_type];
     mask_required_flags = mqtt_fixed_header_rules.mask_required_flags[control_type];
+    expected_length = mqtt_fixed_header_rules.expected_length[control_type];
 
     /* check for valid type */
     if (!mqtt_fixed_header_rules.control_type_is_valid[control_type]) {
@@ -989,6 +1012,16 @@ static ssize_t mqtt_fixed_header_rule_violation(const struct mqtt_fixed_header *
         return MQTT_ERROR_CONTROL_INVALID_FLAGS;
     }
 
+    /* check remaining length */
+    if (expected_length >= 0) {
+        if (remaining_length != expected_length) {
+            return MQTT_ERROR_MALFORMED_RESPONSE;
+        }
+    } else {
+        if (remaining_length < -expected_length) {
+            return MQTT_ERROR_MALFORMED_RESPONSE;
+        }
+    }
     return 0;
 }
 
@@ -1231,11 +1264,6 @@ ssize_t mqtt_unpack_connack_response(struct mqtt_response *mqtt_response, const 
     const uint8_t *const start = buf;
     struct mqtt_response_connack *response;
 
-    /* check that remaining length is 2 */
-    if (mqtt_response->fixed_header.remaining_length != 2) {
-        return MQTT_ERROR_MALFORMED_RESPONSE;
-    }
-    
     response = &(mqtt_response->decoded.connack);
     /* unpack */
     if (*buf & 0xFE) {
@@ -1357,11 +1385,6 @@ ssize_t mqtt_unpack_publish_response(struct mqtt_response *mqtt_response, const 
     response->qos_level = (fixed_header->control_flags & MQTT_PUBLISH_QOS_MASK) >> 1;
     response->retain_flag = fixed_header->control_flags & MQTT_PUBLISH_RETAIN;
 
-    /* make sure that remaining length is valid */
-    if (mqtt_response->fixed_header.remaining_length < 4) {
-        return MQTT_ERROR_MALFORMED_RESPONSE;
-    }
-
     /* parse variable header */
     response->topic_name_size = __mqtt_unpack_uint16(buf);
     buf += 2;
@@ -1424,11 +1447,6 @@ ssize_t mqtt_unpack_pubxxx_response(struct mqtt_response *mqtt_response, const u
     const uint8_t *const start = buf;
     uint16_t packet_id;
 
-    /* assert remaining length is correct */
-    if (mqtt_response->fixed_header.remaining_length != 2) {
-        return MQTT_ERROR_MALFORMED_RESPONSE;
-    }
-
     /* parse packet_id */
     packet_id = __mqtt_unpack_uint16(buf);
     buf += 2;
@@ -1451,11 +1469,6 @@ ssize_t mqtt_unpack_suback_response (struct mqtt_response *mqtt_response, const 
     const uint8_t *const start = buf;
     uint32_t remaining_length = mqtt_response->fixed_header.remaining_length;
     
-    /* assert remaining length is at least 3 (for packet id and at least 1 topic) */
-    if (remaining_length < 3) {
-        return MQTT_ERROR_MALFORMED_RESPONSE;
-    }
-
     /* unpack packet_id */
     mqtt_response->decoded.suback.packet_id = __mqtt_unpack_uint16(buf);
     buf += 2;
@@ -1539,10 +1552,6 @@ ssize_t mqtt_pack_subscribe_request(uint8_t *buf, size_t bufsz, unsigned int pac
 ssize_t mqtt_unpack_unsuback_response(struct mqtt_response *mqtt_response, const uint8_t *buf) 
 {
     const uint8_t *const start = buf;
-
-    if (mqtt_response->fixed_header.remaining_length != 2) {
-        return MQTT_ERROR_MALFORMED_RESPONSE;
-    }
 
     /* parse packet_id */
     mqtt_response->decoded.unsuback.packet_id = __mqtt_unpack_uint16(buf);

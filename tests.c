@@ -59,7 +59,7 @@ static void TEST__framing__fixed_header(void** state) {
      * remaining length tests on pack and unpack
      */
     for(k = 0; k < sizeof(remaining_lengths)/sizeof(remaining_lengths[0]); ++k) {
-        fixed_header->control_type = MQTT_CONTROL_CONNECT;
+        fixed_header->control_type = k ? MQTT_CONTROL_CONNECT : MQTT_CONTROL_DISCONNECT;
         fixed_header->control_flags = 0;
         fixed_header->remaining_length = remaining_lengths[k];
 
@@ -103,8 +103,9 @@ static void TEST__framing__fixed_header(void** state) {
 
     /* check that valid flags are ok when there is a required bit */
     correct_buf[0] = (MQTT_CONTROL_PUBREL << 4) | 2;
+    correct_buf[1] = 2u;
     rv = mqtt_unpack_fixed_header(&response, correct_buf, sizeof(correct_buf));
-    assert_true(rv == 3);
+    assert_true(rv == 2);
 
     /* check that invalid flags are ok when there is a required bit */
     correct_buf[0] = (MQTT_CONTROL_PUBREL << 4) | 3;
@@ -113,6 +114,7 @@ static void TEST__framing__fixed_header(void** state) {
 
     /* check that valid flags are ok when there are optional flags */
     correct_buf[0] = (MQTT_CONTROL_PUBLISH << 4) | 0xF;
+    correct_buf[1] = 193u;
     rv = mqtt_unpack_fixed_header(&response, correct_buf, sizeof(correct_buf));
     assert_true(rv == 3);
     
