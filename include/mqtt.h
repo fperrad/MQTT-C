@@ -249,6 +249,29 @@ enum MQTTErrors {
 const char* mqtt_error_str(enum MQTTErrors error);
 
 /**
+ * @brief Pack a MQTT remaining length, given a native 32 bit integer .
+ * 
+ * @param[out] buf the buffer that the MQTT remaining length will be written to.
+ * @param[in] bufsz the number of bytes left in \p buf.
+ * @param[in] length the remaining length to be written to \p buf.
+ * 
+ * @returns The number of bytes put into \p buf, 0 if \p buf is too small to fit the length.
+*/
+ssize_t __mqtt_pack_remaining_length(uint8_t *buf, size_t bufsz, uint32_t length);
+
+/**
+ * @brief Unpack a MQTT remaining length to a native 32 bit integer.
+ * 
+ * @param[out] length the remaining length readen from \p buf.
+ * @param[in] buf the buffer that the MQTT integer will be read from.
+ * @param[in] bufsz the total number of bytes in the buffer.
+ * 
+ * @returns The number of bytes that were consumed, or 0 if the buffer does not contain enough 
+ *          bytes to parse the packet, or a negative value if there was a protocol violation.
+*/
+ssize_t __mqtt_unpack_remaining_length(uint32_t *length, const uint8_t *buf, size_t bufsz);
+
+/**
  * @brief Pack a MQTT 16 bit integer, given a native 16 bit integer .
  * 
  * @param[out] buf the buffer that the MQTT integer will be written to.

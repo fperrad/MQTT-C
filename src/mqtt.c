@@ -1028,8 +1028,8 @@ static ssize_t mqtt_fixed_header_rule_violation(const struct mqtt_fixed_header *
 ssize_t mqtt_unpack_fixed_header(struct mqtt_response *response, const uint8_t *buf, size_t bufsz) {
     struct mqtt_fixed_header *fixed_header;
     const uint8_t *start = buf;
-    int lshift;
     ssize_t errcode;
+    ssize_t rv;
     
     /* check for null pointers or empty buffer */
     if (response == NULL || buf == NULL) {
@@ -1045,24 +1045,13 @@ ssize_t mqtt_unpack_fixed_header(struct mqtt_response *response, const uint8_t *
     fixed_header->control_flags = (uint8_t) (*buf & 0x0F);
 
     /* parse remaining size */
-    fixed_header->remaining_length = 0;
-
-    lshift = 0;
-    do {
-
-        /* MQTT spec (2.2.3) says the maximum length is 28 bits */
-        if(lshift == 28)
-            return MQTT_ERROR_INVALID_REMAINING_LENGTH;
-
-        /* consume byte and assert at least 1 byte left */
-        --bufsz;
-        ++buf;
-        if (bufsz == 0) return 0;
-
-        /* parse next byte*/
-        fixed_header->remaining_length += (uint32_t) ((*buf & 0x7F) << lshift);
-        lshift += 7;
-    } while(*buf & 0x80); /* while continue bit is set */ 
+    rv = __mqtt_unpack_remaining_length(&fixed_header->remaining_length, buf, bufsz);
+    if (rv <= 0) {
+        /* something went wrong */
+        return rv;
+    }
+    buf += rv;
+    bufsz -= (size_t)rv;
 
     /* consume last byte */
     --bufsz;
@@ -1086,6 +1075,7 @@ ssize_t mqtt_unpack_fixed_header(struct mqtt_response *response, const uint8_t *
 ssize_t mqtt_pack_fixed_header(uint8_t *buf, size_t bufsz, const struct mqtt_fixed_header *fixed_header) {
     const uint8_t *start = buf;
     ssize_t errcode;
+    ssize_t rv;
     uint32_t remaining_length;
     
     /* check for null pointers or empty buffer */
@@ -1112,24 +1102,19 @@ ssize_t mqtt_pack_fixed_header(uint8_t *buf, size_t bufsz, const struct mqtt_fix
     if(remaining_length >= 256*1024*1024)
         return MQTT_ERROR_INVALID_REMAINING_LENGTH;
 
-    do {
-        /* consume byte and assert at least 1 byte left */
-        --bufsz;
-        ++buf;
-        if (bufsz == 0) return 0;
-        
-        /* pack next byte */
-        *buf  = remaining_length & 0x7F;
-        if(remaining_length > 127) *buf |= 0x80;
-        remaining_length = remaining_length >> 7;
-    } while(*buf & 0x80);
-    
+    rv = __mqtt_pack_remaining_length(buf, bufsz, remaining_length);
+    if (rv == 0) {
+        return 0;
+    }
+    buf += rv;
+    bufsz -= (size_t)rv;
+
     /* consume last byte */
     --bufsz;
     ++buf;
 
     /* check that there's still enough space in buffer for packet */
-    if (bufsz < fixed_header->remaining_length) {
+    if (bufsz < remaining_length) {
         return 0;
     }
 
@@ -1754,6 +1739,53 @@ ssize_t mqtt_unpack_response(struct mqtt_response* response, const uint8_t *buf,
 }
 
 /* EXTRA DETAILS */
+ssize_t __mqtt_pack_remaining_length(uint8_t *buf, size_t bufsz, uint32_t length)
+{
+    const uint8_t *start = buf;
+
+    do {
+        /* consume byte and assert at least 1 byte left */
+        --bufsz;
+        ++buf;
+        if (bufsz == 0) return 0;
+
+        /* pack next byte */
+        *buf = length & 0x7F;
+        if (length > 127) *buf |= 0x80;
+        length >>= 7;
+    } while (*buf & 0x80);
+
+    /* return how many bytes were consumed */
+    return buf - start;
+}
+
+ssize_t __mqtt_unpack_remaining_length(uint32_t *length, const uint8_t *buf, size_t bufsz)
+{
+    const uint8_t *start = buf;
+    uint32_t parsed_length = 0;
+    int lshift = 0;
+
+    do {
+
+        /* MQTT spec (2.2.3) says the maximum length is 28 bits */
+        if (lshift == 28)
+            return MQTT_ERROR_INVALID_REMAINING_LENGTH;
+
+        /* consume byte and assert at least 1 byte left */
+        --bufsz;
+        ++buf;
+        if (bufsz == 0) return 0;
+
+        /* parse next byte*/
+        parsed_length += (uint32_t) ((*buf & 0x7F) << lshift);
+        lshift += 7;
+    } while (*buf & 0x80); /* while continue bit is set */
+    *length = parsed_length;
+
+    /* return how many bytes were consumed */
+    return buf - start;
+}
+
 ssize_t __mqtt_pack_uint16(uint8_t *buf, uint16_t integer)
 {
   uint16_t integer_htons = MQTT_PAL_HTONS(integer);
