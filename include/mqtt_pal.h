@@ -82,6 +82,10 @@ extern "C" {
 
     #define MQTT_PAL_TIME() time(NULL)
 
+    #define FALSE 0
+    #define TRUE 1
+
+    typedef int mqtt_bool_t;
     typedef time_t mqtt_pal_time_t;
     typedef pthread_mutex_t mqtt_pal_mutex_t;
 
@@ -131,6 +135,10 @@ extern "C" {
 
     #define MQTT_PAL_TIME() time(NULL)
 
+    #define FALSE 0
+    #define TRUE 1
+
+    typedef int mqtt_bool_t;
     typedef time_t mqtt_pal_time_t;
     typedef CRITICAL_SECTION mqtt_pal_mutex_t;
 

@@ -35,7 +35,7 @@ SOFTWARE.
 enum MQTTErrors mqtt_sync(struct mqtt_client *client) {
     /* Recover from any errors */
     enum MQTTErrors err;
-    int reconnecting = 0;
+    mqtt_bool_t reconnecting = FALSE;
     MQTT_PAL_MUTEX_LOCK(&client->mutex);
     if (client->error != MQTT_ERROR_RECONNECTING && client->error != MQTT_OK && client->reconnect_callback != NULL) {
         client->reconnect_callback(client, &client->reconnect_state);
@@ -51,7 +51,7 @@ enum MQTTErrors mqtt_sync(struct mqtt_client *client) {
     } else {
         /* mqtt_reconnect will have queued the disconnect packet - that needs to be sent and then call reconnect */
         if (client->error == MQTT_ERROR_RECONNECTING) {
-            reconnecting = 1;
+            reconnecting = TRUE;
             client->error = MQTT_OK;
         }
         MQTT_PAL_MUTEX_UNLOCK(&client->mutex);
@@ -83,7 +83,7 @@ enum MQTTErrors mqtt_sync(struct mqtt_client *client) {
 }
 
 uint16_t __mqtt_next_pid(struct mqtt_client *client) {
-    int pid_exists = 0;
+    mqtt_bool_t pid_exists = FALSE;
     if (client->pid_lfsr == 0) {
         client->pid_lfsr = 163u;
     }
@@ -98,10 +98,10 @@ uint16_t __mqtt_next_pid(struct mqtt_client *client) {
         }
 
         /* check that the PID is unique */
-        pid_exists = 0;
+        pid_exists = FALSE;
         for(curr = mqtt_mq_get(&(client->mq), 0); curr >= client->mq.queue_tail; --curr) {
             if (curr->packet_id == client->pid_lfsr) {
-                pid_exists = 1;
+                pid_exists = TRUE;
                 break;
             }
         }
@@ -510,7 +510,7 @@ ssize_t __mqtt_send(struct mqtt_client *client)
 {
     uint8_t inspected;
     ssize_t len;
-    int inflight_qos2 = 0;
+    mqtt_bool_t inflight_qos2 = FALSE;
     int i = 0;
     
     MQTT_PAL_MUTEX_LOCK(&client->mutex);
@@ -524,14 +524,14 @@ ssize_t __mqtt_send(struct mqtt_client *client)
     len = mqtt_mq_length(&client->mq);
     for(; i < len; ++i) {
         struct mqtt_queued_message *msg = mqtt_mq_get(&client->mq, i);
-        int resend = 0;
+        mqtt_bool_t resend = FALSE;
         if (msg->state == MQTT_QUEUED_UNSENT) {
             /* message has not been sent to lets send it */
-            resend = 1;
+            resend = TRUE;
         } else if (msg->state == MQTT_QUEUED_AWAITING_ACK) {
             /* check for timeout */
             if (MQTT_PAL_TIME() > msg->time_sent + client->response_timeout) {
-                resend = 1;
+                resend = TRUE;
                 client->number_of_timeouts += 1;
                 client->send_offset = 0;
             }
@@ -544,9 +544,9 @@ ssize_t __mqtt_send(struct mqtt_client *client)
             inspected = 0x03 & ((msg->start[0]) >> 1); /* qos */
             if (inspected == 2) {
                 if (inflight_qos2) {
-                    resend = 0;
+                    resend = FALSE;
                 }
-                inflight_qos2 = 1;
+                inflight_qos2 = TRUE;
             }
         }
 
@@ -905,29 +905,29 @@ ssize_t __mqtt_recv(struct mqtt_client *client)
 #define MQTT_BITFIELD_RULE_VIOLOATION(bitfield, rule_value, rule_mask) ((bitfield ^ rule_value) & rule_mask)
 
 struct mqtt_fixed_header_rules_s{
-    uint8_t control_type_is_valid[16];
+    mqtt_bool_t control_type_is_valid[16];
     uint8_t required_flags[16];
     uint8_t mask_required_flags[16];
 } ;
 
 static const struct mqtt_fixed_header_rules_s mqtt_fixed_header_rules ={
         {   /* boolean value, true if type is valid */
-                0x00, /* MQTT_CONTROL_RESERVED */
-                0x01, /* MQTT_CONTROL_CONNECT */
-                0x01, /* MQTT_CONTROL_CONNACK */
-                0x01, /* MQTT_CONTROL_PUBLISH */
-                0x01, /* MQTT_CONTROL_PUBACK */
-                0x01, /* MQTT_CONTROL_PUBREC */
-                0x01, /* MQTT_CONTROL_PUBREL */
-                0x01, /* MQTT_CONTROL_PUBCOMP */
-                0x01, /* MQTT_CONTROL_SUBSCRIBE */
-                0x01, /* MQTT_CONTROL_SUBACK */
-                0x01, /* MQTT_CONTROL_UNSUBSCRIBE */
-                0x01, /* MQTT_CONTROL_UNSUBACK */
-                0x01, /* MQTT_CONTROL_PINGREQ */
-                0x01, /* MQTT_CONTROL_PINGRESP */
-                0x01, /* MQTT_CONTROL_DISCONNECT */
-                0x00  /* MQTT_CONTROL_RESERVED */
+                FALSE, /* MQTT_CONTROL_RESERVED */
+                TRUE,  /* MQTT_CONTROL_CONNECT */
+                TRUE,  /* MQTT_CONTROL_CONNACK */
+                TRUE,  /* MQTT_CONTROL_PUBLISH */
+                TRUE,  /* MQTT_CONTROL_PUBACK */
+                TRUE,  /* MQTT_CONTROL_PUBREC */
+                TRUE,  /* MQTT_CONTROL_PUBREL */
+                TRUE,  /* MQTT_CONTROL_PUBCOMP */
+                TRUE,  /* MQTT_CONTROL_SUBSCRIBE */
+                TRUE,  /* MQTT_CONTROL_SUBACK */
+                TRUE,  /* MQTT_CONTROL_UNSUBSCRIBE */
+                TRUE,  /* MQTT_CONTROL_UNSUBACK */
+                TRUE,  /* MQTT_CONTROL_PINGREQ */
+                TRUE,  /* MQTT_CONTROL_PINGRESP */
+                TRUE,  /* MQTT_CONTROL_DISCONNECT */
+                FALSE  /* MQTT_CONTROL_RESERVED */
         },
         {   /* flags that must be set for the associated control type */
                 0x00, /* MQTT_CONTROL_RESERVED */
