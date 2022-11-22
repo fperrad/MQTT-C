@@ -1027,7 +1027,6 @@ static ssize_t mqtt_fixed_header_rule_violation(const struct mqtt_fixed_header *
 
 ssize_t mqtt_unpack_fixed_header(struct mqtt_response *response, const uint8_t *buf, size_t bufsz) {
     struct mqtt_fixed_header *fixed_header;
-    const uint8_t *start = buf;
     ssize_t errcode;
     ssize_t rv;
     
@@ -1050,12 +1049,6 @@ ssize_t mqtt_unpack_fixed_header(struct mqtt_response *response, const uint8_t *
         /* something went wrong */
         return rv;
     }
-    buf += rv;
-    bufsz -= (size_t)rv;
-
-    /* consume last byte */
-    --bufsz;
-    ++buf;
 
     /* check that the fixed header is valid */
     errcode = mqtt_fixed_header_rule_violation(fixed_header);
@@ -1069,11 +1062,10 @@ ssize_t mqtt_unpack_fixed_header(struct mqtt_response *response, const uint8_t *
     }
 
     /* return how many bytes were consumed */
-    return buf - start;
+    return 1 + rv;
 }
 
 ssize_t mqtt_pack_fixed_header(uint8_t *buf, size_t bufsz, const struct mqtt_fixed_header *fixed_header) {
-    const uint8_t *start = buf;
     ssize_t errcode;
     ssize_t rv;
     uint32_t remaining_length;
@@ -1106,12 +1098,6 @@ ssize_t mqtt_pack_fixed_header(uint8_t *buf, size_t bufsz, const struct mqtt_fix
     if (rv == 0) {
         return 0;
     }
-    buf += rv;
-    bufsz -= (size_t)rv;
-
-    /* consume last byte */
-    --bufsz;
-    ++buf;
 
     /* check that there's still enough space in buffer for packet */
     if (bufsz < remaining_length) {
@@ -1119,7 +1105,7 @@ ssize_t mqtt_pack_fixed_header(uint8_t *buf, size_t bufsz, const struct mqtt_fix
     }
 
     /* return how many bytes were consumed */
-    return buf - start;
+    return 1 + rv;
 }
 
 /* CONNECT */
@@ -1135,7 +1121,6 @@ ssize_t mqtt_pack_connection_request(uint8_t* buf, size_t bufsz,
 { 
     struct mqtt_fixed_header fixed_header;
     size_t remaining_length;
-    const uint8_t *const start = buf;
     ssize_t rv;
 
     /* pack the fixed headr */
@@ -1241,12 +1226,11 @@ ssize_t mqtt_pack_connection_request(uint8_t* buf, size_t bufsz,
     }
 
     /* return the number of bytes that were consumed */
-    return buf - start;
+    return rv + (ssize_t)remaining_length;
 }
 
 /* CONNACK */
 ssize_t mqtt_unpack_connack_response(struct mqtt_response *mqtt_response, const uint8_t *buf) {
-    const uint8_t *const start = buf;
     struct mqtt_response_connack *response;
 
     response = &(mqtt_response->decoded.connack);
@@ -1262,9 +1246,9 @@ ssize_t mqtt_unpack_connack_response(struct mqtt_response *mqtt_response, const 
         /* only bit 1 can be set */
         return MQTT_ERROR_CONNACK_FORBIDDEN_CODE;
     } else {
-        response->return_code = (enum MQTTConnackReturnCode) *buf++;
+        response->return_code = (enum MQTTConnackReturnCode) *buf;
     }
-    return buf - start;
+    return 2;
 }
 
 /* DISCONNECT */
@@ -1293,7 +1277,6 @@ ssize_t mqtt_pack_publish_request(uint8_t *buf, size_t bufsz,
                                   size_t application_message_size,
                                   uint8_t publish_flags)
 {
-    const uint8_t *const start = buf;
     ssize_t rv;
     struct mqtt_fixed_header fixed_header;
     uint32_t remaining_length;
@@ -1351,14 +1334,12 @@ ssize_t mqtt_pack_publish_request(uint8_t *buf, size_t bufsz,
 
     /* pack payload */
     memcpy(buf, application_message, application_message_size);
-    buf += application_message_size;
 
-    return buf - start;
+    return rv + remaining_length;
 }
 
 ssize_t mqtt_unpack_publish_response(struct mqtt_response *mqtt_response, const uint8_t *buf)
 {    
-    const uint8_t *const start = buf;
     struct mqtt_fixed_header *fixed_header;
     struct mqtt_response_publish *response;
     
@@ -1388,10 +1369,9 @@ ssize_t mqtt_unpack_publish_response(struct mqtt_response *mqtt_response, const 
     } else {
         response->application_message_size = fixed_header->remaining_length - response->topic_name_size - 4;
     }
-    buf += response->application_message_size;
     
     /* return number of bytes consumed */
-    return buf - start;
+    return (ssize_t)fixed_header->remaining_length;
 }
 
 /* PUBXXX */
@@ -1399,7 +1379,6 @@ ssize_t mqtt_pack_pubxxx_request(uint8_t *buf, size_t bufsz,
                                  enum MQTTControlPacketType control_type,
                                  uint16_t packet_id) 
 {
-    const uint8_t *const start = buf;
     struct mqtt_fixed_header fixed_header;
     ssize_t rv;
 
@@ -1422,19 +1401,17 @@ ssize_t mqtt_pack_pubxxx_request(uint8_t *buf, size_t bufsz,
         return 0;
     }
     
-    buf += __mqtt_pack_uint16(buf, packet_id);
+    (void)__mqtt_pack_uint16(buf, packet_id);
 
-    return buf - start;
+    return rv + 2;
 }
 
 ssize_t mqtt_unpack_pubxxx_response(struct mqtt_response *mqtt_response, const uint8_t *buf) 
 {
-    const uint8_t *const start = buf;
     uint16_t packet_id;
 
     /* parse packet_id */
     packet_id = __mqtt_unpack_uint16(buf);
-    buf += 2;
 
     if (mqtt_response->fixed_header.control_type == MQTT_CONTROL_PUBACK) {
         mqtt_response->decoded.puback.packet_id = packet_id;
@@ -1446,31 +1423,27 @@ ssize_t mqtt_unpack_pubxxx_response(struct mqtt_response *mqtt_response, const u
         mqtt_response->decoded.pubcomp.packet_id = packet_id;
     }
 
-    return buf - start;
+    return 2;
 }
 
 /* SUBACK */
 ssize_t mqtt_unpack_suback_response (struct mqtt_response *mqtt_response, const uint8_t *buf) {
-    const uint8_t *const start = buf;
     uint32_t remaining_length = mqtt_response->fixed_header.remaining_length;
     
     /* unpack packet_id */
     mqtt_response->decoded.suback.packet_id = __mqtt_unpack_uint16(buf);
     buf += 2;
-    remaining_length -= 2;
 
     /* unpack return codes */
-    mqtt_response->decoded.suback.num_return_codes = (size_t) remaining_length;
+    mqtt_response->decoded.suback.num_return_codes = (size_t)remaining_length - 2;
     mqtt_response->decoded.suback.return_codes = buf;
-    buf += remaining_length;
 
-    return buf - start;
+    return (ssize_t)remaining_length;
 }
 
 /* SUBSCRIBE */
 ssize_t mqtt_pack_subscribe_request(uint8_t *buf, size_t bufsz, unsigned int packet_id, ...) {
     va_list args;
-    const uint8_t *const start = buf;
     ssize_t rv;
     struct mqtt_fixed_header fixed_header;
     unsigned int num_subs = 0;
@@ -1530,25 +1503,21 @@ ssize_t mqtt_pack_subscribe_request(uint8_t *buf, size_t bufsz, unsigned int pac
         *buf++ = max_qos[i];
     }
 
-    return buf - start;
+    return rv + fixed_header.remaining_length;
 }
 
 /* UNSUBACK */
 ssize_t mqtt_unpack_unsuback_response(struct mqtt_response *mqtt_response, const uint8_t *buf) 
 {
-    const uint8_t *const start = buf;
-
     /* parse packet_id */
     mqtt_response->decoded.unsuback.packet_id = __mqtt_unpack_uint16(buf);
-    buf += 2;
 
-    return buf - start;
+    return 2;
 }
 
 /* UNSUBSCRIBE */
 ssize_t mqtt_pack_unsubscribe_request(uint8_t *buf, size_t bufsz, unsigned int packet_id, ...) {
     va_list args;
-    const uint8_t *const start = buf;
     ssize_t rv;
     struct mqtt_fixed_header fixed_header;
     unsigned int num_subs = 0;
@@ -1603,7 +1572,7 @@ ssize_t mqtt_pack_unsubscribe_request(uint8_t *buf, size_t bufsz, unsigned int p
         buf += __mqtt_pack_str(buf, topic[i]);
     }
 
-    return buf - start;
+    return rv + fixed_header.remaining_length;
 }
 
 /* MESSAGE QUEUE */
@@ -1695,10 +1664,10 @@ struct mqtt_queued_message* mqtt_mq_find(const struct mqtt_message_queue *mq, en
 
 /* RESPONSE UNPACKING */
 ssize_t mqtt_unpack_response(struct mqtt_response* response, const uint8_t *buf, size_t bufsz) {
-    const uint8_t *const start = buf;
-    ssize_t rv = mqtt_unpack_fixed_header(response, buf, bufsz);
-    if (rv <= 0) return rv;
-    buf += rv;
+    ssize_t rv;
+    ssize_t rh = mqtt_unpack_fixed_header(response, buf, bufsz);
+    if (rh <= 0) return rh;
+    buf += rh;
     switch(response->fixed_header.control_type) {
         case MQTT_CONTROL_CONNACK:
             rv = mqtt_unpack_connack_response(response, buf);
@@ -1734,8 +1703,7 @@ ssize_t mqtt_unpack_response(struct mqtt_response* response, const uint8_t *buf,
     }
 
     if (rv < 0) return rv;
-    buf += rv;
-    return buf - start;
+    return rh + rv;
 }
 
 /* EXTRA DETAILS */
