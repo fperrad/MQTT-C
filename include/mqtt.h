@@ -1077,6 +1077,7 @@ struct mqtt_client {
     /** @brief A counter counting the number of timeouts that have occurred. */
     int number_of_timeouts;
 
+#if !defined(MQTT_NO_TYPICAL_TIME)
     /**
      * @brief Approximately much time it has typically taken to receive responses from the 
      *        broker.
@@ -1084,6 +1085,7 @@ struct mqtt_client {
      * @note This is tracked using a exponential-averaging.
      */
     float typical_response_time;
+#endif
 
     /**
      * @brief The callback that is called whenever a publish is received from the broker.
