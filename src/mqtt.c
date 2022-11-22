@@ -134,8 +134,10 @@ enum MQTTErrors mqtt_init(struct mqtt_client *client,
     client->recv_buffer.curr_sz = client->recv_buffer.mem_size;
 
     client->error = MQTT_ERROR_CONNECT_NOT_CALLED;
+#if !defined(MQTT_NO_TIMEOUT)
     client->response_timeout = 30;
     client->number_of_timeouts = 0;
+#endif
     client->number_of_keep_alives = 0;
 #if !defined(MQTT_NO_TYPICAL_TIME)
     client->typical_response_time = -1.0f;
@@ -169,8 +171,10 @@ void mqtt_init_reconnect(struct mqtt_client *client,
     client->recv_buffer.curr_sz = 0;
 
     client->error = MQTT_ERROR_INITIAL_RECONNECT;
+#if !defined(MQTT_NO_TIMEOUT)
     client->response_timeout = 30;
     client->number_of_timeouts = 0;
+#endif
     client->number_of_keep_alives = 0;
 #if !defined(MQTT_NO_TYPICAL_TIME)
     client->typical_response_time = -1.0f;
@@ -532,6 +536,7 @@ ssize_t __mqtt_send(struct mqtt_client *client)
         if (msg->state == MQTT_QUEUED_UNSENT) {
             /* message has not been sent to lets send it */
             resend = TRUE;
+#if !defined(MQTT_NO_TIMEOUT)
         } else if (msg->state == MQTT_QUEUED_AWAITING_ACK) {
             /* check for timeout */
             if (MQTT_PAL_TIME() > msg->time_sent + client->response_timeout) {
@@ -539,6 +544,7 @@ ssize_t __mqtt_send(struct mqtt_client *client)
                 client->number_of_timeouts += 1;
                 client->send_offset = 0;
             }
+#endif
         }
 
         /* only send QoS 2 message if there are no inflight QoS 2 PUBLISH messages */
@@ -582,7 +588,9 @@ ssize_t __mqtt_send(struct mqtt_client *client)
 
         /* update timeout watcher */
         client->time_of_last_send = MQTT_PAL_TIME();
+#if !defined(MQTT_NO_TIMEOUT)
         msg->time_sent = client->time_of_last_send;
+#endif
 
         /* 
         Determine the state to put the message in.

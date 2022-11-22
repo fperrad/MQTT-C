@@ -869,6 +869,7 @@ struct mqtt_queued_message {
     /** @brief The state of the message. */
     enum MQTTQueuedMessageState state;
 
+#if !defined(MQTT_NO_TIMEOUT)
     /** 
      * @brief The time at which the message was sent..
      * 
@@ -876,6 +877,7 @@ struct mqtt_queued_message {
      *       the MQTT_QUEUED_AWAITING_ACK \c state.
      */
     mqtt_pal_time_t time_sent;
+#endif
 
     /**
      * @brief The control type of the message.
@@ -1064,6 +1066,7 @@ struct mqtt_client {
      */
     enum MQTTErrors error;
 
+#if !defined(MQTT_NO_TIMEOUT)
     /** 
      * @brief The timeout period in seconds.
      * 
@@ -1076,6 +1079,7 @@ struct mqtt_client {
 
     /** @brief A counter counting the number of timeouts that have occurred. */
     int number_of_timeouts;
+#endif
 
 #if !defined(MQTT_NO_TYPICAL_TIME)
     /**
