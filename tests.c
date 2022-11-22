@@ -349,7 +349,7 @@ static void TEST__framing__pubxxx(void** state) {
     assert_true(response.fixed_header.control_type == MQTT_CONTROL_PUBACK);
     rv = mqtt_unpack_pubxxx_response(&response, buf + 2);
     assert_true(rv == 2);
-    assert_true(response.decoded.puback.packet_id == 213u);
+    assert_true(response.packet_id == 213u);
 
     /* pubrec */
     rv = mqtt_pack_pubxxx_request(buf, 256, MQTT_CONTROL_PUBREC, 213u);
@@ -361,7 +361,7 @@ static void TEST__framing__pubxxx(void** state) {
     assert_true(response.fixed_header.control_type == MQTT_CONTROL_PUBREC);
     rv = mqtt_unpack_pubxxx_response(&response, buf + 2);
     assert_true(rv == 2);
-    assert_true(response.decoded.pubrec.packet_id == 213u);
+    assert_true(response.packet_id == 213u);
 
     /* pubrel */
     rv = mqtt_pack_pubxxx_request(buf, 256, MQTT_CONTROL_PUBREL, 213u);
@@ -373,7 +373,7 @@ static void TEST__framing__pubxxx(void** state) {
     assert_true(response.fixed_header.control_type == MQTT_CONTROL_PUBREL);
     rv = mqtt_unpack_pubxxx_response(&response, buf + 2);
     assert_true(rv == 2);
-    assert_true(response.decoded.pubrel.packet_id == 213u);
+    assert_true(response.packet_id == 213u);
 
     /* pubcomp */
     rv = mqtt_pack_pubxxx_request(buf, 256, MQTT_CONTROL_PUBCOMP, 213u);
@@ -385,7 +385,7 @@ static void TEST__framing__pubxxx(void** state) {
     assert_true(response.fixed_header.control_type == MQTT_CONTROL_PUBCOMP);
     rv = mqtt_unpack_pubxxx_response(&response, buf + 2);
     assert_true(rv == 2);
-    assert_true(response.decoded.pubcomp.packet_id == 213u);
+    assert_true(response.packet_id == 213u);
 }
 
 static void TEST__framing__subscribe(void** state) {
@@ -419,7 +419,7 @@ static void TEST__framing__suback(void** state) {
     assert_true(response.fixed_header.control_type == MQTT_CONTROL_SUBACK);
     rv = mqtt_unpack_suback_response(&response, buf + 2);
     assert_true(rv == 5);
-    assert_true(response.decoded.suback.packet_id == 132u);
+    assert_true(response.packet_id == 132u);
     assert_true(response.decoded.suback.num_return_codes == 3);
     assert_true(response.decoded.suback.return_codes[0] == MQTT_SUBACK_SUCCESS_MAX_QOS_0);
     assert_true(response.decoded.suback.return_codes[1] == MQTT_SUBACK_SUCCESS_MAX_QOS_1);
@@ -455,7 +455,7 @@ static void TEST__framing__unsuback(void** state) {
     assert_true(response.fixed_header.control_type == MQTT_CONTROL_UNSUBACK);
     rv = mqtt_unpack_unsuback_response(&response, buf + 2);
     assert_true(rv == 2);
-    assert_true(response.decoded.unsuback.packet_id == 213u);
+    assert_true(response.packet_id == 213u);
 }
 
 static void TEST__framing__disconnect(void** state) {

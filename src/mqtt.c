@@ -749,7 +749,7 @@ ssize_t __mqtt_recv(struct mqtt_client *client)
             case MQTT_CONTROL_PUBLISH:
                 /* stage response, none if qos==0, PUBACK if qos==1, PUBREC if qos==2 */
                 if (response.decoded.publish.qos_level == 1) {
-                    rv = __mqtt_puback(client, response.decoded.publish.packet_id);
+                    rv = __mqtt_puback(client, response.packet_id);
                     if (rv != MQTT_OK) {
                         client->error = (enum MQTTErrors)rv;
                         mqtt_recv_ret = rv;
@@ -757,11 +757,11 @@ ssize_t __mqtt_recv(struct mqtt_client *client)
                     }
                 } else if (response.decoded.publish.qos_level == 2) {
                     /* check if this is a duplicate */
-                    if (mqtt_mq_find(&client->mq, MQTT_CONTROL_PUBREC, &response.decoded.publish.packet_id) != NULL) {
+                    if (mqtt_mq_find(&client->mq, MQTT_CONTROL_PUBREC, &response.packet_id) != NULL) {
                         break;
                     }
 
-                    rv = __mqtt_pubrec(client, response.decoded.publish.packet_id);
+                    rv = __mqtt_pubrec(client, response.packet_id);
                     if (rv != MQTT_OK) {
                         client->error = (enum MQTTErrors)rv;
                         mqtt_recv_ret = rv;
@@ -773,7 +773,7 @@ ssize_t __mqtt_recv(struct mqtt_client *client)
                 break;
             case MQTT_CONTROL_PUBACK:
                 /* release associated PUBLISH */
-                msg = mqtt_mq_find(&client->mq, MQTT_CONTROL_PUBLISH, &response.decoded.puback.packet_id);
+                msg = mqtt_mq_find(&client->mq, MQTT_CONTROL_PUBLISH, &response.packet_id);
                 if (msg == NULL) {
                     client->error = MQTT_ERROR_ACK_OF_UNKNOWN;
                     mqtt_recv_ret = MQTT_ERROR_ACK_OF_UNKNOWN;
@@ -785,11 +785,11 @@ ssize_t __mqtt_recv(struct mqtt_client *client)
                 break;
             case MQTT_CONTROL_PUBREC:
                 /* check if this is a duplicate */
-                if (mqtt_mq_find(&client->mq, MQTT_CONTROL_PUBREL, &response.decoded.pubrec.packet_id) != NULL) {
+                if (mqtt_mq_find(&client->mq, MQTT_CONTROL_PUBREL, &response.packet_id) != NULL) {
                     break;
                 }
                 /* release associated PUBLISH */
-                msg = mqtt_mq_find(&client->mq, MQTT_CONTROL_PUBLISH, &response.decoded.pubrec.packet_id);
+                msg = mqtt_mq_find(&client->mq, MQTT_CONTROL_PUBLISH, &response.packet_id);
                 if (msg == NULL) {
                     client->error = MQTT_ERROR_ACK_OF_UNKNOWN;
                     mqtt_recv_ret = MQTT_ERROR_ACK_OF_UNKNOWN;
@@ -799,7 +799,7 @@ ssize_t __mqtt_recv(struct mqtt_client *client)
                 /* update response time */
                 client->typical_response_time = 0.875f * (client->typical_response_time) + 0.125f * (float) (MQTT_PAL_TIME() - msg->time_sent);
                 /* stage PUBREL */
-                rv = __mqtt_pubrel(client, response.decoded.pubrec.packet_id);
+                rv = __mqtt_pubrel(client, response.packet_id);
                 if (rv != MQTT_OK) {
                     client->error = (enum MQTTErrors)rv;
                     mqtt_recv_ret = rv;
@@ -808,7 +808,7 @@ ssize_t __mqtt_recv(struct mqtt_client *client)
                 break;
             case MQTT_CONTROL_PUBREL:
                 /* release associated PUBREC */
-                msg = mqtt_mq_find(&client->mq, MQTT_CONTROL_PUBREC, &response.decoded.pubrel.packet_id);
+                msg = mqtt_mq_find(&client->mq, MQTT_CONTROL_PUBREC, &response.packet_id);
                 if (msg == NULL) {
                     client->error = MQTT_ERROR_ACK_OF_UNKNOWN;
                     mqtt_recv_ret = MQTT_ERROR_ACK_OF_UNKNOWN;
@@ -818,7 +818,7 @@ ssize_t __mqtt_recv(struct mqtt_client *client)
                 /* update response time */
                 client->typical_response_time = 0.875f * (client->typical_response_time) + 0.125f * (float) (MQTT_PAL_TIME() - msg->time_sent);
                 /* stage PUBCOMP */
-                rv = __mqtt_pubcomp(client, response.decoded.pubrec.packet_id);
+                rv = __mqtt_pubcomp(client, response.packet_id);
                 if (rv != MQTT_OK) {
                     client->error = (enum MQTTErrors)rv;
                     mqtt_recv_ret = rv;
@@ -827,7 +827,7 @@ ssize_t __mqtt_recv(struct mqtt_client *client)
                 break;
             case MQTT_CONTROL_PUBCOMP:
                 /* release associated PUBREL */
-                msg = mqtt_mq_find(&client->mq, MQTT_CONTROL_PUBREL, &response.decoded.pubcomp.packet_id);
+                msg = mqtt_mq_find(&client->mq, MQTT_CONTROL_PUBREL, &response.packet_id);
                 if (msg == NULL) {
                     client->error = MQTT_ERROR_ACK_OF_UNKNOWN;
                     mqtt_recv_ret = MQTT_ERROR_ACK_OF_UNKNOWN;
@@ -839,7 +839,7 @@ ssize_t __mqtt_recv(struct mqtt_client *client)
                 break;
             case MQTT_CONTROL_SUBACK:
                 /* release associated SUBSCRIBE */
-                msg = mqtt_mq_find(&client->mq, MQTT_CONTROL_SUBSCRIBE, &response.decoded.suback.packet_id);
+                msg = mqtt_mq_find(&client->mq, MQTT_CONTROL_SUBSCRIBE, &response.packet_id);
                 if (msg == NULL) {
                     client->error = MQTT_ERROR_ACK_OF_UNKNOWN;
                     mqtt_recv_ret = MQTT_ERROR_ACK_OF_UNKNOWN;
@@ -857,7 +857,7 @@ ssize_t __mqtt_recv(struct mqtt_client *client)
                 break;
             case MQTT_CONTROL_UNSUBACK:
                 /* release associated UNSUBSCRIBE */
-                msg = mqtt_mq_find(&client->mq, MQTT_CONTROL_UNSUBSCRIBE, &response.decoded.unsuback.packet_id);
+                msg = mqtt_mq_find(&client->mq, MQTT_CONTROL_UNSUBSCRIBE, &response.packet_id);
                 if (msg == NULL) {
                     client->error = MQTT_ERROR_ACK_OF_UNKNOWN;
                     mqtt_recv_ret = MQTT_ERROR_ACK_OF_UNKNOWN;
@@ -1353,7 +1353,7 @@ ssize_t mqtt_unpack_publish_response(struct mqtt_response *mqtt_response, const 
     buf += response->topic_name_size;
 
     if (response->qos_level > 0) {
-        response->packet_id = __mqtt_unpack_uint16(buf);
+        mqtt_response->packet_id = __mqtt_unpack_uint16(buf);
         buf += 2;
     }
 
@@ -1403,20 +1403,8 @@ ssize_t mqtt_pack_pubxxx_request(uint8_t *buf, size_t bufsz,
 
 ssize_t mqtt_unpack_pubxxx_response(struct mqtt_response *mqtt_response, const uint8_t *buf) 
 {
-    uint16_t packet_id;
-
     /* parse packet_id */
-    packet_id = __mqtt_unpack_uint16(buf);
-
-    if (mqtt_response->fixed_header.control_type == MQTT_CONTROL_PUBACK) {
-        mqtt_response->decoded.puback.packet_id = packet_id;
-    } else if (mqtt_response->fixed_header.control_type == MQTT_CONTROL_PUBREC) {
-        mqtt_response->decoded.pubrec.packet_id = packet_id;
-    } else if (mqtt_response->fixed_header.control_type == MQTT_CONTROL_PUBREL) {
-        mqtt_response->decoded.pubrel.packet_id = packet_id;
-    } else {
-        mqtt_response->decoded.pubcomp.packet_id = packet_id;
-    }
+    mqtt_response->packet_id = __mqtt_unpack_uint16(buf);
 
     return 2;
 }
@@ -1426,7 +1414,7 @@ ssize_t mqtt_unpack_suback_response (struct mqtt_response *mqtt_response, const 
     uint32_t remaining_length = mqtt_response->fixed_header.remaining_length;
     
     /* unpack packet_id */
-    mqtt_response->decoded.suback.packet_id = __mqtt_unpack_uint16(buf);
+    mqtt_response->packet_id = __mqtt_unpack_uint16(buf);
     buf += 2;
 
     /* unpack return codes */
@@ -1505,7 +1493,7 @@ ssize_t mqtt_pack_subscribe_request(uint8_t *buf, size_t bufsz, unsigned int pac
 ssize_t mqtt_unpack_unsuback_response(struct mqtt_response *mqtt_response, const uint8_t *buf) 
 {
     /* parse packet_id */
-    mqtt_response->decoded.unsuback.packet_id = __mqtt_unpack_uint16(buf);
+    mqtt_response->packet_id = __mqtt_unpack_uint16(buf);
 
     return 2;
 }

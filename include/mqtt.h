@@ -391,70 +391,11 @@ struct mqtt_response_publish {
      */
     const void* topic_name;
 
-    /** @brief The publish message's packet ID. */
-    uint16_t packet_id;
-
     /** @brief The publish message's application message.*/
     const void* application_message;
 
     /** @brief The size of the application message in bytes. */
     size_t application_message_size;
-};
-
-/**
- * @brief A publish acknowledgement for messages that were published with QoS level 1.
- * @ingroup unpackers
- * 
- * @see <a href="http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718043">
- * MQTT v3.1.1: PUBACK - Publish Acknowledgement.
- * </a> 
- *
- */
-struct mqtt_response_puback {
-    /** @brief The published messages packet ID. */
-    uint16_t packet_id;
-};
-
-/**
- * @brief The response packet to a PUBLISH packet with QoS level 2.
- * @ingroup unpackers
- * 
- * @see <a href="http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718048">
- * MQTT v3.1.1: PUBREC - Publish Received.
- * </a> 
- *
- */
-struct mqtt_response_pubrec {
-    /** @brief The published messages packet ID. */
-    uint16_t packet_id;
-};
-
-/**
- * @brief The response to a PUBREC packet.
- * @ingroup unpackers
- * 
- * @see <a href="http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718053">
- * MQTT v3.1.1: PUBREL - Publish Release.
- * </a> 
- *
- */
-struct mqtt_response_pubrel {
-    /** @brief The published messages packet ID. */
-    uint16_t packet_id;
-};
-
-/**
- * @brief The response to a PUBREL packet.
- * @ingroup unpackers
- * 
- * @see <a href="http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718058">
- * MQTT v3.1.1: PUBCOMP - Publish Complete.
- * </a> 
- *
- */
-struct mqtt_response_pubcomp {
-    /** T@brief he published messages packet ID. */
-    uint16_t packet_id;
 };
 
 /**
@@ -481,9 +422,6 @@ enum MQTTSubackReturnCodes {
  * </a> 
  */
 struct mqtt_response_suback {
-    /** @brief The published messages packet ID. */
-    uint16_t packet_id;
-
     /** 
      * Array of return codes corresponding to the requested subscribe topics.
      * 
@@ -496,39 +434,15 @@ struct mqtt_response_suback {
 };
 
 /**
- * @brief The brokers response to a UNSUBSCRIBE request.
- * @ingroup unpackers
- * 
- * @see <a href="http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718077">
- * MQTT v3.1.1: UNSUBACK - Unsubscribe Acknowledgement.
- * </a> 
- */
-struct mqtt_response_unsuback {
-    /** @brief The published messages packet ID. */
-    uint16_t packet_id;
-};
-
-/**
- * @brief The response to a ping request.
- * @ingroup unpackers
- * 
- * @note This response contains no members.
- * 
- * @see <a href="http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718086">
- * MQTT v3.1.1: PINGRESP - Ping Response.
- * </a> 
- */
-struct mqtt_response_pingresp {
-  int dummy;
-};
-
-/**
  * @brief A struct used to deserialize/interpret an incoming packet from the broker.
  * @ingroup unpackers
  */
 struct mqtt_response {
     /** @brief The mqtt_fixed_header of the deserialized packet. */
     struct mqtt_fixed_header fixed_header;
+
+    /** @brief The published messages packet ID. */
+    uint16_t packet_id;
 
     /**
      * @brief A union of the possible responses from the broker.
@@ -541,13 +455,7 @@ struct mqtt_response {
     union {
         struct mqtt_response_connack  connack;
         struct mqtt_response_publish  publish;
-        struct mqtt_response_puback   puback;
-        struct mqtt_response_pubrec   pubrec;
-        struct mqtt_response_pubrel   pubrel;
-        struct mqtt_response_pubcomp  pubcomp;
         struct mqtt_response_suback   suback;
-        struct mqtt_response_unsuback unsuback;
-        struct mqtt_response_pingresp pingresp;
     } decoded;
 };
 
