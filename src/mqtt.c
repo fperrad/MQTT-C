@@ -398,7 +398,7 @@ ssize_t __mqtt_pubcomp(struct mqtt_client *client, uint16_t packet_id) {
 
 enum MQTTErrors mqtt_subscribe(struct mqtt_client *client,
                        const char* topic_name,
-                       int max_qos_level)
+                       uint8_t max_qos_level)
 {
     ssize_t rv;
     uint16_t packet_id;
@@ -413,8 +413,7 @@ enum MQTTErrors mqtt_subscribe(struct mqtt_client *client,
             client->mq.curr, client->mq.curr_sz,
             packet_id,
             topic_name,
-            max_qos_level,
-            (const char*)NULL
+            max_qos_level
         ), 
         1
     );
@@ -440,8 +439,7 @@ enum MQTTErrors mqtt_unsubscribe(struct mqtt_client *client,
         mqtt_pack_unsubscribe_request(
             client->mq.curr, client->mq.curr_sz,
             packet_id,
-            topic_name,
-            (const char*)NULL
+            topic_name
         ), 
         1
     );
@@ -1453,42 +1451,16 @@ ssize_t mqtt_unpack_suback_response (struct mqtt_response *mqtt_response, const 
 }
 
 /* SUBSCRIBE */
-ssize_t mqtt_pack_subscribe_request(uint8_t *buf, size_t bufsz, unsigned int packet_id, ...) {
-    va_list args;
+ssize_t mqtt_pack_subscribe_request(uint8_t *buf, size_t bufsz, uint16_t packet_id, const char *topic_name, uint8_t max_qos_level) {
     ssize_t rv;
     struct mqtt_fixed_header fixed_header;
-    unsigned int num_subs = 0;
-    unsigned int i;
-    const char *topic[MQTT_SUBSCRIBE_REQUEST_MAX_NUM_TOPICS];
-    uint8_t max_qos[MQTT_SUBSCRIBE_REQUEST_MAX_NUM_TOPICS] = { 0 };
-
-    /* parse all subscriptions */
-    va_start(args, packet_id);
-    for(;;) {
-        topic[num_subs] = va_arg(args, const char*);
-        if (topic[num_subs] == NULL) {
-            /* end of list */
-            break;
-        }
-
-        max_qos[num_subs] = (uint8_t) va_arg(args, unsigned int);
-
-        ++num_subs;
-        if (num_subs >= MQTT_SUBSCRIBE_REQUEST_MAX_NUM_TOPICS) {
-            va_end(args);
-            return MQTT_ERROR_SUBSCRIBE_TOO_MANY_TOPICS;
-        }
-    }
-    va_end(args);
 
     /* build the fixed header */
     fixed_header.control_type = MQTT_CONTROL_SUBSCRIBE;
     fixed_header.control_flags = 2u;
     fixed_header.remaining_length = 2u; /* size of variable header */
-    for(i = 0; i < num_subs; ++i) {
-        /* payload is topic name + max qos (1 byte) */
-        fixed_header.remaining_length += __mqtt_packed_cstrlen(topic[i]) + 1;
-    }
+    /* payload is topic name + max qos (1 byte) */
+    fixed_header.remaining_length += __mqtt_packed_cstrlen(topic_name) + 1;
 
     /* pack the fixed header */
     rv = mqtt_pack_fixed_header(buf, bufsz, &fixed_header);
@@ -1509,10 +1481,8 @@ ssize_t mqtt_pack_subscribe_request(uint8_t *buf, size_t bufsz, unsigned int pac
 
 
     /* pack payload */
-    for(i = 0; i < num_subs; ++i) {
-        buf += __mqtt_pack_str(buf, topic[i]);
-        *buf++ = max_qos[i];
-    }
+    buf += __mqtt_pack_str(buf, topic_name);
+    *buf = max_qos_level;
 
     return rv + fixed_header.remaining_length;
 }
@@ -1527,39 +1497,16 @@ ssize_t mqtt_unpack_unsuback_response(struct mqtt_response *mqtt_response, const
 }
 
 /* UNSUBSCRIBE */
-ssize_t mqtt_pack_unsubscribe_request(uint8_t *buf, size_t bufsz, unsigned int packet_id, ...) {
-    va_list args;
+ssize_t mqtt_pack_unsubscribe_request(uint8_t *buf, size_t bufsz, uint16_t packet_id, const char *topic_name) {
     ssize_t rv;
     struct mqtt_fixed_header fixed_header;
-    unsigned int num_subs = 0;
-    unsigned int i;
-    const char *topic[MQTT_UNSUBSCRIBE_REQUEST_MAX_NUM_TOPICS];
-
-    /* parse all subscriptions */
-    va_start(args, packet_id);
-    for(;;) {
-        topic[num_subs] = va_arg(args, const char*);
-        if (topic[num_subs] == NULL) {
-            /* end of list */
-            break;
-        }
-
-        ++num_subs;
-        if (num_subs >= MQTT_UNSUBSCRIBE_REQUEST_MAX_NUM_TOPICS) {
-            va_end(args);
-            return MQTT_ERROR_UNSUBSCRIBE_TOO_MANY_TOPICS;
-        }
-    }
-    va_end(args);
 
     /* build the fixed header */
     fixed_header.control_type = MQTT_CONTROL_UNSUBSCRIBE;
     fixed_header.control_flags = 2u;
     fixed_header.remaining_length = 2u; /* size of variable header */
-    for(i = 0; i < num_subs; ++i) {
-        /* payload is topic name */
-        fixed_header.remaining_length += __mqtt_packed_cstrlen(topic[i]);
-    }
+    /* payload is topic name */
+    fixed_header.remaining_length += __mqtt_packed_cstrlen(topic_name);
 
     /* pack the fixed header */
     rv = mqtt_pack_fixed_header(buf, bufsz, &fixed_header);
@@ -1575,13 +1522,10 @@ ssize_t mqtt_pack_unsubscribe_request(uint8_t *buf, size_t bufsz, unsigned int p
     }
 
     /* pack variable header */
-    buf += __mqtt_pack_uint16(buf, (uint16_t)packet_id);
-
+    buf += __mqtt_pack_uint16(buf, packet_id);
 
     /* pack payload */
-    for(i = 0; i < num_subs; ++i) {
-        buf += __mqtt_pack_str(buf, topic[i]);
-    }
+    (void)__mqtt_pack_str(buf, topic_name);
 
     return rv + fixed_header.remaining_length;
 }

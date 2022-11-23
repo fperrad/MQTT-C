@@ -743,15 +743,6 @@ ssize_t mqtt_pack_pubxxx_request(uint8_t *buf, size_t bufsz,
                                  uint16_t packet_id);
 
 /** 
- * @brief The maximum number topics that can be subscribed to in a single call to 
- *         mqtt_pack_subscribe_request.
- * @ingroup packers
- * 
- * @see mqtt_pack_subscribe_request
- */
-#define MQTT_SUBSCRIBE_REQUEST_MAX_NUM_TOPICS 8
-
-/** 
  * @brief Serialize a SUBSCRIBE packet and put it in \p buf.
  * @ingroup packers
  * 
@@ -774,17 +765,9 @@ ssize_t mqtt_pack_pubxxx_request(uint8_t *buf, size_t bufsz,
  *          packet, a negative value if there was a protocol violation.
  */
 ssize_t mqtt_pack_subscribe_request(uint8_t *buf, size_t bufsz, 
-                                    unsigned int packet_id, 
-                                    ...); /* null terminated */
-
-/** 
- * @brief The maximum number topics that can be subscribed to in a single call to 
- *         mqtt_pack_unsubscribe_request.
- * @ingroup packers
- * 
- * @see mqtt_pack_unsubscribe_request
- */
-#define MQTT_UNSUBSCRIBE_REQUEST_MAX_NUM_TOPICS 8
+                                    uint16_t packet_id,
+                                    const char *topic_name,
+                                    uint8_t max_qos_level);
 
 /** 
  * @brief Serialize a UNSUBSCRIBE packet and put it in \p buf.
@@ -808,8 +791,8 @@ ssize_t mqtt_pack_subscribe_request(uint8_t *buf, size_t bufsz,
  *          packet, a negative value if there was a protocol violation.
  */
 ssize_t mqtt_pack_unsubscribe_request(uint8_t *buf, size_t bufsz, 
-                                      unsigned int packet_id, 
-                                      ...); /* null terminated */
+                                      uint16_t packet_id,
+                                      const char *topic_name);
 
 /**
  * @brief Serialize a PINGREQ and put it into \p buf.
@@ -1488,7 +1471,7 @@ ssize_t __mqtt_pubcomp(struct mqtt_client *client, uint16_t packet_id);
  */
 enum MQTTErrors mqtt_subscribe(struct mqtt_client *client,
                                const char* topic_name,
-                               int max_qos_level);
+                               uint8_t max_qos_level);
 
 /**
  * @brief Unsubscribe from a topic.

@@ -392,16 +392,14 @@ static void TEST__framing__subscribe(void** state) {
     uint8_t buf[256];
     ssize_t rv;
     const uint8_t correct[] = {
-        MQTT_CONTROL_SUBSCRIBE << 4 | 2u, 23,
+        MQTT_CONTROL_SUBSCRIBE << 4 | 2u, 8,
         0, 132u,
         0, 3, 'a', '/', 'b', 0u,
-        0, 5, 'b', 'b', 'b', '/', 'x', 1u,
-        0, 4, 'c', '/', 'd', 'd', 0u,
     };
 
-    rv = mqtt_pack_subscribe_request(buf, 256, 132, "a/b", 0, "bbb/x", 1, "c/dd", 0, NULL);
-    assert_true(rv == 25);
-    assert_true(memcmp(buf, correct, 25) == 0);
+    rv = mqtt_pack_subscribe_request(buf, 256, 132, "a/b", 0);
+    assert_true(rv == 10);
+    assert_true(memcmp(buf, correct, 10) == 0);
 }
 
 static void TEST__framing__suback(void** state) {
@@ -430,15 +428,13 @@ static void TEST__framing__unsubscribe(void** state) {
     uint8_t buf[256];
     ssize_t rv;
     const uint8_t correct[] = {
-        MQTT_CONTROL_UNSUBSCRIBE << 4 | 2u, 20,
+        MQTT_CONTROL_UNSUBSCRIBE << 4 | 2u, 7,
         0, 132u,
         0, 3, 'a', '/', 'b',
-        0, 5, 'b', 'b', 'b', '/', 'x',
-        0, 4, 'c', '/', 'd', 'd',
     };
 
-    rv = mqtt_pack_unsubscribe_request(buf, 256, 132, "a/b", "bbb/x", "c/dd", NULL);
-    assert_true(rv == 22);
+    rv = mqtt_pack_unsubscribe_request(buf, 256, 132, "a/b");
+    assert_true(rv == 9);
     assert_true(memcmp(buf, correct, sizeof(correct)) == 0);
 }
 

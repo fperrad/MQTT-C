@@ -72,7 +72,6 @@ extern "C" {
 #if defined(__unix__) || defined(__APPLE__) || defined(__NuttX__)
     #include <limits.h>
     #include <string.h>
-    #include <stdarg.h>
     #include <time.h>
     #include <arpa/inet.h>
     #include <pthread.h>
